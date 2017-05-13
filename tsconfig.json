@@ -1,0 +1,17 @@
+// For documentation see https://www.typescriptlang.org/docs/handbook/compiler-options.html
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "declaration": true,
+    "lib": ["dom", "es2016"],
+    "module": "commonjs",
+    "target": "es6",
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "outDir": "./distributable/",
+    "removeComments": true,
+    "sourceMap": true,
+    "strictNullChecks": true,
+    "watch": false
+  }
+}
