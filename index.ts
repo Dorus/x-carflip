@@ -6,10 +6,11 @@ import {Observable} from '@reactivex/rxjs';
 
 const exchangeProxy = new ExchangeProxy();
 
-const marketConditions$ = () => Observable.merge(exchangeProxy.commissionInfo$, exchangeProxy.inventory$);
+const marketConditions$ = () => Observable.combineLatest([exchangeProxy.commissionInfo$(), exchangeProxy.inventory$()]);
 // Both observables should emit their first value before trades$ runs for the first time.
 
-marketConditions$().concatMap(latestValues => tradeRequests$(latestValues)).subscribe();
+marketConditions$().subscribe(x => console.log(x));
+//marketConditions$().concatMap(latestValues => tradeRequests$(latestValues)).subscribe();
 // trades$ should be run with the latest value of each observable.
 
 function tradeRequests$ (latestValues)
