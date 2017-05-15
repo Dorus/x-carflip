@@ -1,7 +1,5 @@
 // Network coordinator
 
-class NetworkCoordinator
+export class NetworkCoordinator
 {
 }
-
-export default NetworkCoordinator;

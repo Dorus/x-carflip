@@ -1,10 +1,10 @@
 // Car dealer exchange client
 
 import {Car} from './lib/car';
-import ExchangeProxy from './lib/exchangeproxy';
+import {ExchangeProxy} from './lib/exchangeproxy';
 import {Observable} from '@reactivex/rxjs';
 import {PriceRange} from './lib/car';
-import TradeRequest from './lib/traderequest';
+import {TradeRequest} from './lib/traderequest';
 
 const enum MarketCondition
 {

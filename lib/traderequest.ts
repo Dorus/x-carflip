@@ -2,11 +2,9 @@
 
 import {Car} from './car';
 
-class TradeRequest
+export class TradeRequest
 {
   constructor (public readonly car: Car)
   {
   }
 }
-
-export default TradeRequest;

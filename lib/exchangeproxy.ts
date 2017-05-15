@@ -1,12 +1,12 @@
 // Car dealer exchange
 
 import {Car} from './car';
-import NetworkCoordinator from './networkcoordinator';
+import {NetworkCoordinator} from './networkcoordinator';
 import {Observable} from '@reactivex/rxjs';
 import {PriceRange} from './car';
-import TradeRequest from './traderequest';
+import {TradeRequest} from './traderequest';
 
-class ExchangeProxy
+export class ExchangeProxy
 {
   private networkCoordinator: NetworkCoordinator;
 
@@ -40,5 +40,3 @@ class ExchangeProxy
     return Observable.empty(); //placeholder
   }
 }
-
-export default ExchangeProxy;
