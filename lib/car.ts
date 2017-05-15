@@ -1,10 +1,15 @@
 // Car
 
-class Car
+export class Car
 {
-  constructor (public readonly priceRange: string)
+  constructor (public readonly priceRange: PriceRange)
   {
   }
 }
 
-export default Car;
+export enum PriceRange
+{
+  Low,
+  Mid,
+  High
+}

@@ -1,8 +1,16 @@
 // Car dealer exchange client
 
+import {Car} from './lib/car';
 import ExchangeProxy from './lib/exchangeproxy';
 import {Observable} from '@reactivex/rxjs';
+import {PriceRange} from './lib/car';
 import TradeRequest from './lib/traderequest';
+
+const enum MarketCondition
+{
+  CommissionInfo,
+  Inventory
+}
 
 const exchangeProxy = new ExchangeProxy();
 
@@ -11,8 +19,8 @@ const marketCondition$s = [exchangeProxy.commissionInfo$(3000),
 
 const marketConditions$ = () => Observable.combineLatest(marketCondition$s,
                                                          (commissionInfo,
-                                                          inventory) => ({"commissionInfo": commissionInfo,
-                                                                          "inventory": inventory}));
+                                                          inventory) => ({[MarketCondition.CommissionInfo]: commissionInfo,
+                                                                          [MarketCondition.Inventory]: inventory}));
 
 marketConditions$().concatMap(marketConditions => tradeRequest$(marketConditions)) // Market conditions create trading opportunities.
                    .concatMap(tradeRequest => exchangeProxy.tradeRequestResponse$(tradeRequest)) // Trade requests are issued to the exchange.
@@ -20,13 +28,19 @@ marketConditions$().concatMap(marketConditions => tradeRequest$(marketConditions
 
 function tradeRequest$ (marketConditions: {}): Observable<TradeRequest>
 {
-  console.log(marketConditions['commissionInfo']);
-  console.log(marketConditions['inventory']);
+  const commissionInfo = marketConditions[MarketCondition.CommissionInfo];
+  const inventory: Array<Car> = marketConditions[MarketCondition.Inventory];
+  let v: Array<TradeRequest> = [];
 
-  // get cars from inventory and make a traderequest for each car with a low price range.
+  inventory.forEach(car => decide(car));
 
-  return Observable.from([new TradeRequest(),
-                          new TradeRequest(),
-                          new TradeRequest(),
-                          new TradeRequest()]); //placeholder
+  function decide(car: Car)
+  {
+    if (car.priceRange == PriceRange.Low)
+    {
+      v.push(new TradeRequest(car));
+    }
+  }
+
+  return Observable.from(v);
 }

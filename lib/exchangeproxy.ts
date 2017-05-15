@@ -1,8 +1,9 @@
 // Car dealer exchange
 
-import Car from './car';
+import {Car} from './car';
 import NetworkCoordinator from './networkcoordinator';
 import {Observable} from '@reactivex/rxjs';
+import {PriceRange} from './car';
 import TradeRequest from './traderequest';
 
 class ExchangeProxy
@@ -25,15 +26,17 @@ class ExchangeProxy
   {
     return Observable.timer(0,
                             repeatDelay)
-                     .concatMap(() => { return Observable.of([new Car('low'),
-                                                              new Car('mid'),
-                                                              new Car('high')]) }); //placeholder
+                     .concatMap(() => { return Observable.of([new Car(PriceRange.Low),
+                                                              new Car(PriceRange.Mid),
+                                                              new Car(PriceRange.High)]) }); //placeholder
   }
 
   //additional observables...
 
   public tradeRequestResponse$ (tradeRequest: TradeRequest)
   {
+    console.log(tradeRequest);
+
     return Observable.empty(); //placeholder
   }
 }
