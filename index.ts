@@ -6,6 +6,9 @@ import {Observable} from '@reactivex/rxjs';
 import {PriceRange} from './lib/car';
 import {TradeRequest} from './lib/traderequest';
 
+const commissionInfoDelay: number = 3000;
+const inventoryDelay: number = 2000;
+
 const enum MarketCondition
 {
   CommissionInfo,
@@ -14,8 +17,8 @@ const enum MarketCondition
 
 const exchangeProxy = new ExchangeProxy();
 
-const marketCondition$s = [exchangeProxy.commissionInfo$(3000),
-                           exchangeProxy.inventory$(2000)];
+const marketCondition$s = [exchangeProxy.commissionInfo$(commissionInfoDelay),
+                           exchangeProxy.inventory$(inventoryDelay)];
 
 const marketConditions$ = () => Observable.combineLatest(marketCondition$s,
                                                          (commissionInfo,
