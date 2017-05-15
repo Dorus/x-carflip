@@ -6,17 +6,24 @@ import TradeRequest from './lib/traderequest';
 
 const exchangeProxy = new ExchangeProxy();
 
-const marketConditions$ = () => Observable.combineLatest([exchangeProxy.commissionInfo$(3000),
-                                                          exchangeProxy.inventory$(2000)]); //, (commissionInfo, inventory) => ???`)
-marketConditions$()
-.concatMap(marketConditions => tradeRequest$(marketConditions)) // Market conditions create trading opportunities.
-.concatMap(tradeRequest => exchangeProxy.tradeRequestResponse$(tradeRequest)) // Trade requests are issued to the exchange.
-.subscribe(x => console.log(x)); // Trade request responses are logged.
+const marketCondition$s = [exchangeProxy.commissionInfo$(3000),
+                           exchangeProxy.inventory$(2000)];
 
-function tradeRequest$ (marketConditions: Array<any>): Observable<TradeRequest>
+const marketConditions$ = () => Observable.combineLatest(marketCondition$s,
+                                                         (commissionInfo,
+                                                          inventory) => ({"commissionInfo": commissionInfo,
+                                                                          "inventory": inventory}));
+
+marketConditions$().concatMap(marketConditions => tradeRequest$(marketConditions)) // Market conditions create trading opportunities.
+                   .concatMap(tradeRequest => exchangeProxy.tradeRequestResponse$(tradeRequest)) // Trade requests are issued to the exchange.
+                   .subscribe(); // Trade request responses are logged.
+
+function tradeRequest$ (marketConditions: {}): Observable<TradeRequest>
 {
-  // get cars from inventory from marketConditions, make a traderequest for each car with a low price range.
-  console.log(marketConditions);
+  console.log(marketConditions['commissionInfo']);
+  console.log(marketConditions['inventory']);
+
+  // get cars from inventory and make a traderequest for each car with a low price range.
 
   return Observable.from([new TradeRequest(), new TradeRequest(), new TradeRequest(), new TradeRequest()]); //placeholder
 }

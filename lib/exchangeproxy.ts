@@ -16,18 +16,19 @@ class ExchangeProxy
 
   public commissionInfo$ (repeatDelay: number): Observable<any>
   {
-    return Observable
-           .timer(0, repeatDelay)
-           .concatMap((x) => { return Observable.of(x) }); //placeholder
+    return Observable.timer(0,
+                            repeatDelay)
+                     .concatMap((x) => { return Observable
+                                      .of(x) }); //placeholder
   }
   
   public inventory$ (repeatDelay: number): Observable<Array<Car>>
   {
-    return Observable
-           .timer(0, repeatDelay)
-           .concatMap(() => { return Observable.of([new Car('low'),
-                                                    new Car('mid'),
-                                                    new Car('high')]) }); //placeholder
+    return Observable.timer(0,
+                            repeatDelay)
+                     .concatMap(() => { return Observable.of([new Car('low'),
+                                                              new Car('mid'),
+                                                              new Car('high')]) }); //placeholder
   }
 
   //additional observables...
