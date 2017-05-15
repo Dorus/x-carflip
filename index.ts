@@ -25,5 +25,8 @@ function tradeRequest$ (marketConditions: {}): Observable<TradeRequest>
 
   // get cars from inventory and make a traderequest for each car with a low price range.
 
-  return Observable.from([new TradeRequest(), new TradeRequest(), new TradeRequest(), new TradeRequest()]); //placeholder
+  return Observable.from([new TradeRequest(),
+                          new TradeRequest(),
+                          new TradeRequest(),
+                          new TradeRequest()]); //placeholder
 }

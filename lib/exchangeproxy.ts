@@ -18,8 +18,7 @@ class ExchangeProxy
   {
     return Observable.timer(0,
                             repeatDelay)
-                     .concatMap((x) => { return Observable
-                                      .of(x) }); //placeholder
+                     .concatMap((x) => { return Observable.of(x) }); //placeholder
   }
   
   public inventory$ (repeatDelay: number): Observable<Array<Car>>
@@ -35,7 +34,7 @@ class ExchangeProxy
 
   public tradeRequestResponse$ (tradeRequest: TradeRequest)
   {
-    return Observable.empty();
+    return Observable.empty(); //placeholder
   }
 }
 
