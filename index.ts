@@ -33,17 +33,9 @@ function tradeRequest$ (marketConditions: {}): Observable<TradeRequest>
 {
   const commissionInfo = marketConditions[MarketCondition.CommissionInfo];
   const inventory: Array<Car> = marketConditions[MarketCondition.Inventory];
-  let v: Array<TradeRequest> = [];
 
-  inventory.forEach(car => decide(car));
-
-  function decide(car: Car)
-  {
-    if (car.priceRange == PriceRange.Low)
-    {
-      v.push(new TradeRequest(car));
-    }
-  }
+  const v: Array<TradeRequest> = inventory.filter(car => car.priceRange == PriceRange.Low)
+                                          .map(car => new TradeRequest(car));
 
   return Observable.from(v);
 }

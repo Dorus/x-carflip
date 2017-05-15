@@ -19,16 +19,16 @@ export class ExchangeProxy
   {
     return Observable.timer(0,
                             repeatDelay)
-                     .concatMap((x) => { return Observable.of(x) }); //placeholder
+                     .concatMap(x => Observable.of(x)); //placeholder
   }
-  
+
   public inventory$ (repeatDelay: number): Observable<Array<Car>>
   {
     return Observable.timer(0,
                             repeatDelay)
-                     .concatMap(() => { return Observable.of([new Car(PriceRange.Low),
-                                                              new Car(PriceRange.Mid),
-                                                              new Car(PriceRange.High)]) }); //placeholder
+                     .concatMap(() => Observable.of([new Car(PriceRange.Low),
+                                                     new Car(PriceRange.Mid),
+                                                     new Car(PriceRange.High)])); //placeholder
   }
 
   //additional observables...
