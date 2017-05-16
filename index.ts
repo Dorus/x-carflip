@@ -3,39 +3,46 @@
 import {Car} from './lib/car';
 import {ExchangeProxy} from './lib/exchangeproxy';
 import {Observable} from '@reactivex/rxjs';
+import {MarketCondition} from './lib/marketcondition';
 import {PriceRange} from './lib/car';
 import {TradeRequest} from './lib/traderequest';
 
 const commissionInfoDelay: number = 3000;
+const exchangeProxy = new ExchangeProxy();
 const inventoryDelay: number = 2000;
 
-const enum MarketCondition
-{
-  CommissionInfo,
-  Inventory
-}
+const marketConditions: Array<MarketCondition> = [MarketCondition.CommissionInfo, MarketCondition.Inventory];
 
-const exchangeProxy = new ExchangeProxy();
+const marketConditions$ = () => Observable.combineLatest(marketCondition$s(marketConditions));
 
-const marketCondition$s = [exchangeProxy.commissionInfo$(commissionInfoDelay),
-                           exchangeProxy.inventory$(inventoryDelay)];
-
-const marketConditions$ = () => Observable.combineLatest(marketCondition$s,
-                                                         (commissionInfo,
-                                                          inventory) => ({[MarketCondition.CommissionInfo]: commissionInfo,
-                                                                          [MarketCondition.Inventory]: inventory}));
-
-marketConditions$().concatMap(marketConditions => tradeRequest$(marketConditions)) // Market conditions create trading opportunities.
+marketConditions$().concatMap(latestValues => tradeRequest$(latestValues)) // Market conditions create trading opportunities.
                    .concatMap(tradeRequest => exchangeProxy.tradeRequestResponse$(tradeRequest)) // Trade requests are issued to the exchange.
                    .subscribe(); // Trade request responses are logged.
 
-function tradeRequest$ (marketConditions: {}): Observable<TradeRequest>
+function tradeRequest$ (latestValues: Array<any>): Observable<TradeRequest>
 {
-  const commissionInfo = marketConditions[MarketCondition.CommissionInfo];
-  const inventory: Array<Car> = marketConditions[MarketCondition.Inventory];
+  const commissionInfo = latestValues[MarketCondition.CommissionInfo];
+  const inventory: Array<Car> = latestValues[MarketCondition.Inventory];
 
   const v: Array<TradeRequest> = inventory.filter(car => car.priceRange == PriceRange.Low)
                                           .map(car => new TradeRequest(car));
 
   return Observable.from(v);
+}
+
+function marketCondition$s (marketConditions: Array<MarketCondition>)
+{
+  let v: Array<Observable<any>> = [];
+
+  if (marketConditions.includes(MarketCondition.CommissionInfo))
+  {
+    v.push(exchangeProxy.commissionInfo$(commissionInfoDelay));
+  }
+
+  if (marketConditions.includes(MarketCondition.Inventory))
+  {
+    v.push(exchangeProxy.inventory$(inventoryDelay));
+  }
+
+  return v;
 }
