@@ -13,13 +13,21 @@ const inventoryDelay: number = 2000;
 
 const marketConditions: Array<MarketCondition> = [MarketCondition.CommissionInfo, MarketCondition.Inventory];
 
-const marketConditions$ = () => Observable.combineLatest(marketCondition$s(marketConditions));
+const marketConditions$ = () => Observable.combineLatest(marketCondition$s(marketConditions),
+                                                         (...args) =>
+                                                         {
+                                                           const v: {} = {};
+                                                           
+                                                           args.forEach((arg, index) => v[marketConditions[index]] = arg );
+                                                           
+                                                           return v;
+                                                         });
 
 marketConditions$().concatMap(latestValues => tradeRequest$(latestValues)) // Market conditions create trading opportunities.
                    .concatMap(tradeRequest => exchangeProxy.tradeRequestResponse$(tradeRequest)) // Trade requests are issued to the exchange.
                    .subscribe(); // Trade request responses are logged.
 
-function tradeRequest$ (latestValues: Array<any>): Observable<TradeRequest>
+function tradeRequest$ (latestValues: {}): Observable<TradeRequest>
 {
   const commissionInfo = latestValues[MarketCondition.CommissionInfo];
   const inventory: Array<Car> = latestValues[MarketCondition.Inventory];
@@ -34,15 +42,22 @@ function marketCondition$s (marketConditions: Array<MarketCondition>)
 {
   let v: Array<Observable<any>> = [];
 
-  if (marketConditions.includes(MarketCondition.CommissionInfo))
+  marketConditions.forEach(marketCondition =>
   {
-    v.push(exchangeProxy.commissionInfo$(commissionInfoDelay));
-  }
+    switch (marketCondition)
+    {
+      case MarketCondition.CommissionInfo:
+        v.push(exchangeProxy.commissionInfo$(commissionInfoDelay));
+        break;
 
-  if (marketConditions.includes(MarketCondition.Inventory))
-  {
-    v.push(exchangeProxy.inventory$(inventoryDelay));
-  }
+      case MarketCondition.Inventory:
+        v.push(exchangeProxy.inventory$(inventoryDelay));
+        break;
+
+      default:
+        console.log('Unrecognized MarketCondition');
+    }
+  });
 
   return v;
 }
