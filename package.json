@@ -1,14 +1,18 @@
 {
-  "dependencies":
-  {
+  "dependencies": {
+    "axios": "^0.16.1",
     "core-js": "^2.4.1",
     "@reactivex/rxjs": "^5.3.0",
     "@types/node": "^7.0.13",
-    "typescript": "^2.2.2"
+    "typescript": "^2.4.0-dev.20170518"
   },
   "description": "Carflip.",
   "license": "MIT",
   "name": "@kellytk/x-carflip",
   "private": true,
+  "scripts":
+  {
+    "tsc-carflip": "tsc --project ./tsconfig.json"
+  },
   "version": "0.0.1"
 }

@@ -8,7 +8,7 @@
     "target": "es6",
     "noImplicitReturns": true,
     "noImplicitThis": true,
-    "outDir": "./distributable/",
+    "outDir": "${workspaceRoot}/../distributable/",
     "removeComments": true,
     "sourceMap": true,
     "strictNullChecks": true,

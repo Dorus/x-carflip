@@ -1,10 +1,10 @@
-// Trade request
+// Exchange request
 
-import {Car} from './car';
+import {ExchangeCommand} from './exchangecommand';
 
-export class TradeRequest
+export class ExchangeRequest
 {
-  constructor (public readonly car: Car)
+  constructor (public readonly command: ExchangeCommand)
   {
   }
 }

@@ -1,10 +1,10 @@
-// Trade request response
+// Exchange request response
 
-import {TradeRequest} from './traderequest';
+import {ExchangeRequest} from './exchangerequest';
 
-export class TradeRequestResponse
+export class ExchangeRequestResponse
 {
-  constructor (public readonly tradeRequest: TradeRequest)
+  constructor (public readonly exchangeRequest: ExchangeRequest)
   {
   }
 }
