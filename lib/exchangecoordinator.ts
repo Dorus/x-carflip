@@ -37,7 +37,7 @@ export class ExchangeCoordinator
                  });
   }
 
-  public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<any>
+  public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<ExchangeRequestResponse>
   {
     const allParameters =
     {
@@ -90,7 +90,11 @@ export class ExchangeCoordinator
                                 return Observable.empty();
                               }
 
-                              if (exchangeRequest.command === ExchangeCommand.ReturnCommissionInfo)
+                              if (exchangeRequest.command === ExchangeCommand.Buy)
+                              {
+                                v = true;
+                              }
+                              else if (exchangeRequest.command === ExchangeCommand.ReturnCommissionInfo)
                               {
                                 v = { maker: .15, taker: .25 };
                               }
@@ -111,7 +115,7 @@ export class ExchangeCoordinator
                             }
 
                             console.log(`${new Date()} [RESPONSE]`);
-                            return Observable.of(v);
+                            return Observable.of(new ExchangeRequestResponse(exchangeRequest, v));
                           });
   }
 

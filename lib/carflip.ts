@@ -1,9 +1,14 @@
 // Carflip
 
+import {Car} from './car';
+import {CarRequest} from './carrequest';
+import {CarRequestResponse} from './carrequestresponse';
+import {CarRequestType} from './carrequesttype';
 import {Exchange} from './exchange';
 import {Indicator} from './indicator';
 import {MarketState} from './marketstate';
 import {Observable} from '@reactivex/rxjs';
+import {PriceRange} from './pricerange';
 
 export class Carflip
 {
@@ -25,11 +30,27 @@ export class Carflip
 
     return Observable.combineLatest([exchange.commissionInfo$(3000),
                                      exchange.inventory$(2000)],
-                                    <(latestValues) => MarketState>this.generateMarketState.bind(this));
+                                    <(latestValues) => MarketState>this.generateMarketState
+                                                                       .bind(this));
+  }
+
+  private carRequest$ (marketState: MarketState): Observable<CarRequest>
+  {
+    const commissionInfo = marketState.get(Indicator.CommissionInfo);
+    const inventory: Array<Car> = marketState.get(Indicator.Inventory);
+
+    const v: Array<CarRequest> = inventory.filter(car => car.priceRange == PriceRange.Low)
+                                          .map(car => new CarRequest(car, CarRequestType.Buy));
+
+    return Observable.from(v);
   }
 
   public trade$ (): Observable<any>
   {
-    return this.marketState$();
+    return this.marketState$()
+               .concatMap(this.carRequest$)
+               .concatMap(this.exchange
+                              .carRequestResponse$
+                              .bind(this.exchange));
   }
 }

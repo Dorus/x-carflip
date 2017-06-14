@@ -1,5 +1,4 @@
 // Car dealer exchange client
-// * Subscribe to market conditions through an exchange and trade cars.
 
 import 'core-js';
 
@@ -10,4 +9,4 @@ import {Carflip} from './lib/carflip';
 const carflip = new Carflip();
 
 carflip.trade$()
-       .subscribe(x => console.log(x));
+       .subscribe(carRequestResponse => console.log(carRequestResponse));

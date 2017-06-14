@@ -4,7 +4,7 @@ import {ExchangeCommand} from './exchangecommand';
 
 export class ExchangeRequest
 {
-  constructor (public readonly command: ExchangeCommand)
+  constructor (public readonly command: ExchangeCommand, public readonly parameters?: {})
   {
   }
 }
