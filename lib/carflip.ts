@@ -18,8 +18,10 @@ export class Carflip
   {
     const v: MarketState = new Map();
 
-    v.set(Indicator.CommissionInfo, latestValues[0]);
-    v.set(Indicator.Inventory, latestValues[1]);
+    v.set(Indicator.CommissionInfo,
+          latestValues[0]);
+    v.set(Indicator.Inventory,
+          latestValues[1]);
 
     return v;
   }
@@ -40,7 +42,8 @@ export class Carflip
     const inventory: Array<Car> = marketState.get(Indicator.Inventory);
 
     const v: Array<CarRequest> = inventory.filter(car => car.priceRange == PriceRange.Low)
-                                          .map(car => new CarRequest(car, CarRequestType.Buy));
+                                          .map(car => new CarRequest(car,
+                                                                     CarRequestType.Buy));
 
     return Observable.from(v);
   }
@@ -48,9 +51,10 @@ export class Carflip
   public trade$ (): Observable<any>
   {
     return this.marketState$()
-               .concatMap(this.carRequest$)
-               .concatMap(this.exchange
-                              .carRequestResponse$
-                              .bind(this.exchange));
+               .concatMap(this.carRequest$);
+               //.concatMap(this.exchange
+               //               .carRequestResponse$
+               //               .bind(this.exchange));
+
   }
 }

@@ -9,8 +9,10 @@ import {ExchangeCommand} from './exchangecommand';
 import {ExchangeRequest} from './exchangerequest';
 import {ExchangeRequestResponse} from './exchangerequestresponse';
 import {Observable} from '@reactivex/rxjs';
+import {Observer} from '@reactivex/rxjs';
 import {PriceRange} from './pricerange';
 import * as Querystring from 'querystring';
+import {Subject} from '@reactivex/rxjs';
 
 export class ExchangeCoordinator
 {
@@ -39,39 +41,99 @@ export class ExchangeCoordinator
 
   public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<ExchangeRequestResponse>
   {
-    const allParameters =
+    class Task
     {
-      command: exchangeRequest.command,
-      nonce: this.generateNextNonce()
-    };
+      observer: Observer<any>;
+      exchangeRequest: ExchangeRequest;
+    }
 
-    console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
+    const taskQueue = new Subject<Task>();
 
-    const data: string = Querystring.stringify(allParameters);
+    const taskQueue$ = taskQueue.concatMap(task => {
+                                return Observable.defer(() =>
+                                           {
+                                             if (task.observer
+                                                     .closed)
+                                             {
+                                               return Observable.empty();
+                                             }
 
-    return Observable.fromPromise(this.axiosPromise(data))
+                                            const allParameters =
+                                            {
+                                              command: task.exchangeRequest.command,
+                                              nonce: this.generateNextNonce()
+                                            };
+
+                                            console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
+
+                                            Object.assign(allParameters,
+                                                          exchangeRequest.parameters);
+
+                                            const data: string = Querystring.stringify(allParameters);
+
+                                             return Observable.fromPromise(this.axiosPromise(data))
+                                                              .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
+                                                              .catch(error =>
+                                                                     {
+                                                                       task.observer
+                                                                           .error(error);
+                                                                       return Observable.empty();
+                                                                     })
+                                                  });
+                                           },
+                                           (task,
+                                            response) => ({response,
+                                                           observer: task.observer}))
+                                .subscribe(({response,
+                                             observer}) =>
+                                             {
+                                               observer.next(response); observer.complete();
+                                             });
+
+    function getApiData (exchangeRequest: ExchangeRequest)
+    {
+      return Observable.create(observer =>
+                               {
+                                 taskQueue.next({observer,
+                                                 exchangeRequest});
+                               });
+    }
+
+    return getApiData(exchangeRequest)
                      .catch((error) =>
                             {
+                              let errorSummary: string = '';
+
+                              if ((error)
+                                  && (error.response)
+                                  && (error.response.data)
+                                  && (error.response.data.error))
+                              {
+                                errorSummary = error.response.data.error;
+                              }
+
+                              if ((errorSummary === '') && (error.message))
+                              {
+                                errorSummary = error.message;
+                              }
+
                               if (typeof(error) !== 'string')
                               {
-                                //console.log(error);
-                                //console.log(`${new Date()} [NETWORK ERROR]`);
+                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
                               }
                               else if ((typeof(error) === 'string') && (error.indexOf('422') !== -1))
                               {
-                                //console.log('422 Unprocessable Entity');
-                                //console.log(error);
-                                //console.log(`${new Date()} [NETWORK ERROR] ${error}`);
+                                console.log('422 Unprocessable Entity');
+                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
                               }
                               else
                               {
-                                //console.log('Unhandled error condition');
-                                //console.log(error);
-                                //console.log(`${new Date()} [NETWORK ERROR]`);
+                                console.log('Unhandled error condition');
+                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
                               }
 
-                              return Observable.of(1);
-                              //return Observable.empty();
+                              //return Observable.of(1); //placeholder
+                              return Observable.empty();
                             })
                      .concatMap((response) =>
                           {
@@ -86,17 +148,19 @@ export class ExchangeCoordinator
                             {
                               if ((response.data) && (response.data.error))
                               {
-                                console.log(`${new Date()} [API ERROR] ${response.data.error}`);
+                                console.log(`${new Date()} [API ERROR] ${response.data
+                                                                                 .error}`);
                                 return Observable.empty();
                               }
 
-                              if (exchangeRequest.command === ExchangeCommand.Buy)
+                              /*if (exchangeRequest.command === ExchangeCommand.Buy)
                               {
                                 v = true;
                               }
-                              else if (exchangeRequest.command === ExchangeCommand.ReturnCommissionInfo)
+                              else*/ if (exchangeRequest.command === ExchangeCommand.ReturnCommissionInfo)
                               {
-                                v = { maker: .15, taker: .25 };
+                                v = { maker: .15,
+                                      taker: .25 }; //placeholder
                               }
                               else if (exchangeRequest.command === ExchangeCommand.ReturnInventory)
                               {
@@ -105,7 +169,7 @@ export class ExchangeCoordinator
                                      new Car(PriceRange.Low),
                                      new Car(PriceRange.Mid),
                                      new Car(PriceRange.High),
-                                     new Car(PriceRange.High)];
+                                     new Car(PriceRange.High)]; //placeholder
                               }
                               else
                               {
@@ -126,7 +190,8 @@ export class ExchangeCoordinator
 
     if ((this.lastNonce === unixtime) || (this.lastNonce > unixtime))
     {
-      v = this.lastNonce += 1;
+      v = this.lastNonce + 1;
+      console.log(`${new Date()} [INFO] Needed to increment generated nonce`);
     }
     else
     {

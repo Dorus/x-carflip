@@ -41,10 +41,12 @@ export class Exchange
 
   public commissionInfo$ (repeatRest: number): Observable<any>
   {
-    return this.indicator$(ExchangeCommand.ReturnCommissionInfo, repeatRest);
+    return this.indicator$(ExchangeCommand.ReturnCommissionInfo,
+                           repeatRest);
   }
 
-  private indicator$ (command: ExchangeCommand, repeatRest?: number): Observable<any>
+  private indicator$ (command: ExchangeCommand,
+                      repeatRest?: number): Observable<any>
   {
     return Observable.timer(0,
                             repeatRest)
@@ -58,6 +60,7 @@ export class Exchange
 
   public inventory$ (repeatRest: number): Observable<Array<Car>>
   {
-    return this.indicator$(ExchangeCommand.ReturnInventory, repeatRest);
+    return this.indicator$(ExchangeCommand.ReturnInventory,
+                           repeatRest);
   }
 }
