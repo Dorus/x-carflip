@@ -19,6 +19,63 @@ export class ExchangeCoordinator
   private readonly apiKey: string = 'LWHEHSLWH';
   private readonly apiSecret: string = '72946258352';
   private lastNonce: number = 0;
+  private readonly taskQueue = new Subject<Task>();
+  private taskQueueSize: number = 0;
+  private readonly taskQueue$ = this.taskQueue
+                                    .do(() =>
+                                    {
+                                      this.taskQueueSize++;
+                                      console.log(`queue size ${this.taskQueueSize}`);
+                                      if (this.taskQueueSize > 3)
+                                      {
+                                        console.log(`${new Date()} [INFO] Task queue exceeds normal maximum`);
+                                      }
+                                    })
+                                    .concatMap(task =>
+                                        {
+                                          return Observable.defer(() =>
+                                           {
+                                             if (task.observer
+                                                     .closed)
+                                             {
+                                               return Observable.empty();
+                                             }
+
+                                            const allParameters =
+                                            {
+                                              command: task.exchangeRequest.command,
+                                              nonce: this.generateNextNonce()
+                                            };
+
+                                            console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
+
+                                            Object.assign(allParameters,
+                                                          task.exchangeRequest.parameters);
+
+                                            const data: string = Querystring.stringify(allParameters);
+
+                                             return Observable.fromPromise(this.axiosPromise(data))
+                                                              .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
+                                                              .catch(error =>
+                                                                     {
+                                                                       task.observer
+                                                                           .error(error);
+                                                                       return Observable.empty();
+                                                                     })
+                                                  });
+                                           },
+                                           (task,
+                                            response) => ({response,
+                                                           observer: task.observer}))
+                                    .do(() =>
+                                    {
+                                      this.taskQueueSize--;
+                                    })
+                                    .subscribe(({response,
+                                             observer}) =>
+                                             {
+                                               observer.next(response); observer.complete();
+                                             });
 
   private axiosPromise (data: any): AxiosPromise
   {
@@ -41,65 +98,7 @@ export class ExchangeCoordinator
 
   public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<ExchangeRequestResponse>
   {
-    class Task
-    {
-      observer: Observer<any>;
-      exchangeRequest: ExchangeRequest;
-    }
-
-    const taskQueue = new Subject<Task>();
-
-    const taskQueue$ = taskQueue.concatMap(task => {
-                                return Observable.defer(() =>
-                                           {
-                                             if (task.observer
-                                                     .closed)
-                                             {
-                                               return Observable.empty();
-                                             }
-
-                                            const allParameters =
-                                            {
-                                              command: task.exchangeRequest.command,
-                                              nonce: this.generateNextNonce()
-                                            };
-
-                                            console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
-
-                                            Object.assign(allParameters,
-                                                          exchangeRequest.parameters);
-
-                                            const data: string = Querystring.stringify(allParameters);
-
-                                             return Observable.fromPromise(this.axiosPromise(data))
-                                                              .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
-                                                              .catch(error =>
-                                                                     {
-                                                                       task.observer
-                                                                           .error(error);
-                                                                       return Observable.empty();
-                                                                     })
-                                                  });
-                                           },
-                                           (task,
-                                            response) => ({response,
-                                                           observer: task.observer}))
-                                .subscribe(({response,
-                                             observer}) =>
-                                             {
-                                               observer.next(response); observer.complete();
-                                             });
-
-    function getApiData (exchangeRequest: ExchangeRequest)
-    {
-      return Observable.create(observer =>
-                               {
-                                 taskQueue.next({observer,
-                                                 exchangeRequest});
-                               });
-    }
-
-    return getApiData(exchangeRequest)
+    return this.getApiData(exchangeRequest)
                      .catch((error) =>
                             {
                               let errorSummary: string = '';
@@ -186,7 +185,7 @@ export class ExchangeCoordinator
   private generateNextNonce()
   {
     let v: number;
-    const unixtime = Math.floor(Date.now() / 1000);
+    const unixtime = Date.now();
 
     if ((this.lastNonce === unixtime) || (this.lastNonce > unixtime))
     {
@@ -202,4 +201,19 @@ export class ExchangeCoordinator
 
     return v;
   }
+
+  private getApiData (exchangeRequest: ExchangeRequest)
+  {
+    return Observable.create(observer =>
+                              {
+                                this.taskQueue.next({observer,
+                                                     exchangeRequest});
+                              });
+  }
+}
+
+class Task
+{
+  observer: Observer<any>;
+  exchangeRequest: ExchangeRequest;
 }
