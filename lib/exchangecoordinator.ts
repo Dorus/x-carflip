@@ -25,10 +25,11 @@ export class ExchangeCoordinator
                                     .do(() =>
                                     {
                                       this.taskQueueSize++;
-                                      console.log(`queue size ${this.taskQueueSize}`);
-                                      if (this.taskQueueSize > 3)
+                                      console.log(`enqueue size ${this.taskQueueSize}`);
+
+                                      if (this.taskQueueSize > 5)
                                       {
-                                        console.log(`${new Date()} [INFO] Task queue exceeds normal maximum`);
+                                        console.log(`${new Date()} [INFO] Task queue exceeds normal maximum (${this.taskQueueSize})`);
                                       }
                                     })
                                     .concatMap(task =>
@@ -70,6 +71,7 @@ export class ExchangeCoordinator
                                     .do(() =>
                                     {
                                       this.taskQueueSize--;
+                                      console.log(`dequeue size ${this.taskQueueSize}`);
                                     })
                                     .subscribe(({response,
                                              observer}) =>

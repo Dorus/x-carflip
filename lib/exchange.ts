@@ -50,7 +50,7 @@ export class Exchange
   {
     return Observable.timer(0,
                             repeatRest)
-                     .concatMap(tick =>
+                     .mergeMap(tick =>
                                 {
                                   return this.exchangeCoordinator
                                              .exchangeRequestResponse$(new ExchangeRequest(command))
