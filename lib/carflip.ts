@@ -30,8 +30,8 @@ export class Carflip
   {
     const exchange: Exchange = this.exchange;
 
-    return Observable.combineLatest([exchange.commissionInfo$(300),
-                                     exchange.inventory$(200)],
+    return Observable.combineLatest([exchange.commissionInfo$(3),
+                                     exchange.inventory$(1)],
                                     <(latestValues) => MarketState>this.generateMarketState
                                                                        .bind(this));
   }
@@ -41,9 +41,13 @@ export class Carflip
     const commissionInfo = marketState.get(Indicator.CommissionInfo);
     const inventory: Array<Car> = marketState.get(Indicator.Inventory);
 
-    const v: Array<CarRequest> = inventory.filter(car => car.priceRange == PriceRange.Low)
-                                          .map(car => new CarRequest(car,
-                                                                     CarRequestType.Buy));
+    const v: Array<CarRequest> = inventory.filter(car => car.priceRange
+                                                  == PriceRange.Low)
+                                          .map(car =>
+                                               {
+                                                 return new CarRequest(car,
+                                                                       CarRequestType.Buy);
+                                               });
 
     return Observable.from(v);
   }

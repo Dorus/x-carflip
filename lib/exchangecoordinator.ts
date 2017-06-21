@@ -13,6 +13,7 @@ import {Observer} from '@reactivex/rxjs';
 import {PriceRange} from './pricerange';
 import * as Querystring from 'querystring';
 import {Subject} from '@reactivex/rxjs';
+import {Task} from './task';
 
 export class ExchangeCoordinator
 {
@@ -22,120 +23,75 @@ export class ExchangeCoordinator
   private readonly taskQueue = new Subject<Task>();
   private taskQueueSize: number = 0;
   private readonly taskQueue$ = this.taskQueue
-                                    .do(() =>
-                                    {
-                                      this.taskQueueSize++;
-                                      console.log(`enqueue size ${this.taskQueueSize}`);
-
-                                      if (this.taskQueueSize > 5)
-                                      {
-                                        console.log(`${new Date()} [INFO] Task queue exceeds normal maximum (${this.taskQueueSize})`);
-                                      }
-                                    })
+                                    .do(this.incrementTaskQueue
+                                            .bind(this))
                                     .concatMap(task =>
-                                        {
-                                          return Observable.defer(() =>
-                                           {
-                                             if (task.observer
-                                                     .closed)
-                                             {
-                                               return Observable.empty();
-                                             }
+                                               {
+                                                  if (task.observer
+                                                          .closed)
+                                                  {
+                                                    return Observable.empty();
+                                                  }
 
-                                            const allParameters =
-                                            {
-                                              command: task.exchangeRequest.command,
-                                              nonce: this.generateNextNonce()
-                                            };
+                                                  const nextNonce: number = generateNextNonce(this.lastNonce);
 
-                                            console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
+                                                  this.lastNonce = nextNonce;
 
-                                            Object.assign(allParameters,
-                                                          task.exchangeRequest.parameters);
+                                                  const allParameters =
+                                                  {
+                                                    command: task.exchangeRequest
+                                                                 .command,
+                                                    nonce: nextNonce
+                                                  };
 
-                                            const data: string = Querystring.stringify(allParameters);
+                                                  console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
 
-                                             return Observable.fromPromise(this.axiosPromise(data))
-                                                              .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
-                                                              .catch(error =>
-                                                                     {
-                                                                       task.observer
-                                                                           .error(error);
-                                                                       return Observable.empty();
-                                                                     })
-                                                  });
-                                           },
-                                           (task,
-                                            response) => ({response,
-                                                           observer: task.observer}))
-                                    .do(() =>
-                                    {
-                                      this.taskQueueSize--;
-                                      console.log(`dequeue size ${this.taskQueueSize}`);
-                                    })
+                                                  Object.assign(allParameters,
+                                                                task.exchangeRequest
+                                                                    .parameters);
+
+                                                  const data: string = Querystring.stringify(allParameters);
+
+                                                  return Observable.fromPromise(generateAxiosPromise(this.apiKey,
+                                                                                                     this.apiSecret,
+                                                                                                     data))
+                                                                    .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
+                                                                    .catch(error =>
+                                                                            {
+                                                                              task.observer
+                                                                                  .error(error);
+                                                                              return Observable.empty();
+                                                                            })
+                                                },
+                                                (task,
+                                                  response) => ({response,
+                                                                observer: task.observer}))
+                                    .do(this.decrementTaskQueue
+                                            .bind(this))
                                     .subscribe(({response,
-                                             observer}) =>
-                                             {
-                                               observer.next(response); observer.complete();
-                                             });
+                                                observer}) =>
+                                               {
+                                                 observer.next(response);
 
-  private axiosPromise (data: any): AxiosPromise
+                                                 observer.complete();
+                                               });
+
+  private decrementTaskQueue ()
   {
-    const hmac: Crypto.Hmac = Crypto.createHmac('sha512', this.apiSecret);
-
-    hmac.update(data, 'utf8');
-    let hashedData: string = hmac.digest('hex');
-
-    return Axios({
-                   data: data,
-                   headers:
-                   {
-                     'Key': this.apiKey,
-                     'Sign': hashedData
-                   },
-                   method: 'post',
-                   url: 'https://api.example.com'
-                 });
+    this.taskQueueSize--;
+    console.log(`${new Date()} dequeue size ${this.taskQueueSize}`);
   }
 
   public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<ExchangeRequestResponse>
   {
-    return this.getApiData(exchangeRequest)
-                     .catch((error) =>
-                            {
-                              let errorSummary: string = '';
-
-                              if ((error)
-                                  && (error.response)
-                                  && (error.response.data)
-                                  && (error.response.data.error))
-                              {
-                                errorSummary = error.response.data.error;
-                              }
-
-                              if ((errorSummary === '') && (error.message))
-                              {
-                                errorSummary = error.message;
-                              }
-
-                              if (typeof(error) !== 'string')
-                              {
-                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
-                              }
-                              else if ((typeof(error) === 'string') && (error.indexOf('422') !== -1))
-                              {
-                                console.log('422 Unprocessable Entity');
-                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
-                              }
-                              else
-                              {
-                                console.log('Unhandled error condition');
-                                console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
-                              }
-
-                              //return Observable.of(1); //placeholder
-                              return Observable.empty();
-                            })
+    return Observable.create(observer =>
+                             {
+                               this.taskQueue
+                                   .next(new Task(observer,
+                                                  exchangeRequest));
+                             })
+                     .catch(this.requestError$
+                                .bind(this))
                      .concatMap((response) =>
                           {
                             let v;
@@ -147,23 +103,27 @@ export class ExchangeCoordinator
 
                             if (isAxiosResponse(response))
                             {
-                              if ((response.data) && (response.data.error))
+                              if ((response.data)
+                                  && (response.data
+                                              .error))
                               {
                                 console.log(`${new Date()} [API ERROR] ${response.data
                                                                                  .error}`);
                                 return Observable.empty();
                               }
 
-                              /*if (exchangeRequest.command === ExchangeCommand.Buy)
+                              if (exchangeRequest.command === ExchangeCommand.Buy)
                               {
                                 v = true;
                               }
-                              else*/ if (exchangeRequest.command === ExchangeCommand.ReturnCommissionInfo)
+                              else if (exchangeRequest.command
+                                         === ExchangeCommand.ReturnCommissionInfo)
                               {
                                 v = { maker: .15,
                                       taker: .25 }; //placeholder
                               }
-                              else if (exchangeRequest.command === ExchangeCommand.ReturnInventory)
+                              else if (exchangeRequest.command
+                                       === ExchangeCommand.ReturnInventory)
                               {
                                 v = [new Car(PriceRange.Low),
                                      new Car(PriceRange.Low),
@@ -184,38 +144,100 @@ export class ExchangeCoordinator
                           });
   }
 
-  private generateNextNonce()
+  private incrementTaskQueue ()
   {
-    let v: number;
-    const unixtime = Date.now();
+    this.taskQueueSize++;
+    console.log(`${new Date()} enqueue size ${this.taskQueueSize}`);
 
-    if ((this.lastNonce === unixtime) || (this.lastNonce > unixtime))
+    if (this.taskQueueSize > 5)
     {
-      v = this.lastNonce + 1;
-      console.log(`${new Date()} [INFO] Needed to increment generated nonce`);
+      console.log(`${new Date()} [INFO] Task queue exceeds normal maximum (${this.taskQueueSize})`);
+    }
+  }
+
+  private requestError$ (error)
+  {
+    let errorSummary: string = '';
+
+    if ((error)
+        && (error.response)
+        && (error.response
+                  .data)
+        && (error.response
+                  .data
+                  .error))
+    {
+      errorSummary = error.response
+                          .data
+                          .error;
+    }
+
+    if ((errorSummary === '')
+        && (error.message))
+    {
+      errorSummary = error.message;
+    }
+
+    if (typeof(error) !== 'string')
+    {
+      console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
+    }
+    else if ((typeof(error) === 'string')
+              && (error.indexOf('422') !== -1))
+    {
+      console.log('422 Unprocessable Entity');
+      console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
     }
     else
     {
-      v = unixtime;
+      console.log('Unhandled error condition');
+      console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
     }
 
-    this.lastNonce = v;
+    this.decrementTaskQueue();
 
-    return v;
-  }
-
-  private getApiData (exchangeRequest: ExchangeRequest)
-  {
-    return Observable.create(observer =>
-                              {
-                                this.taskQueue.next({observer,
-                                                     exchangeRequest});
-                              });
+    return Observable.empty();
   }
 }
 
-class Task
+
+function generateAxiosPromise (apiKey: string, apiSecret: string, data: any): AxiosPromise
 {
-  observer: Observer<any>;
-  exchangeRequest: ExchangeRequest;
+  const hmac: Crypto.Hmac = Crypto.createHmac('sha512',
+                                              apiSecret);
+
+  hmac.update(data,
+              'utf8');
+
+  let hashedData: string = hmac.digest('hex');
+
+  return Axios({
+                  data: data,
+                  headers:
+                  {
+                    'Key': apiKey,
+                    'Sign': hashedData
+                  },
+                  method: 'post',
+                  url: 'https://api.example.com'
+                });
+}
+
+function generateNextNonce(lastNonce: number): number
+{
+  let v: number;
+  const unixtime = Date.now();
+
+  if ((lastNonce === unixtime)
+      || (lastNonce > unixtime))
+  {
+    v = lastNonce + 1;
+    console.log(`${new Date()} [INFO] Needed to increment generated nonce`);
+  }
+  else
+  {
+    v = unixtime;
+  }
+
+  return v;
 }
