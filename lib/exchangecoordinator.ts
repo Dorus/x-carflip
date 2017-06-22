@@ -19,6 +19,7 @@ export class ExchangeCoordinator
 {
   private readonly apiKey: string = 'LWHEHSLWH';
   private readonly apiSecret: string = '72946258352';
+  private readonly duplicateIdentifiers: Array<string> = [];
   private lastNonce: number = 0;
   private readonly taskQueue = new Subject<Task>();
   private taskQueueSize: number = 0;
@@ -82,66 +83,78 @@ export class ExchangeCoordinator
     console.log(`${new Date()} dequeue size ${this.taskQueueSize}`);
   }
 
-  public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest): Observable<ExchangeRequestResponse>
+  public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest, duplicateIdentifier?: string): Observable<ExchangeRequestResponse>
   {
-    return Observable.create(observer =>
-                             {
-                               this.taskQueue
-                                   .next(new Task(observer,
-                                                  exchangeRequest));
-                             })
-                     .catch(this.requestError$
-                                .bind(this))
-                     .concatMap((response) =>
-                          {
-                            let v;
+    if ((duplicateIdentifier)
+        && (this.duplicateIdentifiers
+                .includes(duplicateIdentifier)))
+    {
+      console.log(`found ${duplicateIdentifier} skip task enqueue`);
+      return Observable.empty();
+    }
+    else
+    {
+      return Observable.create(observer =>
+                              {
+                                const task = new Task(observer,
+                                                      exchangeRequest);
 
-                            function isAxiosResponse (r: {} | AxiosResponse): r is AxiosResponse
+                                this.taskQueue
+                                    .next(task);
+                              })
+                      .catch(this.requestError$
+                                 .bind(this))
+                      .concatMap((response) =>
                             {
-                              return true;
-                            }
+                              let v;
 
-                            if (isAxiosResponse(response))
-                            {
-                              if ((response.data)
-                                  && (response.data
-                                              .error))
+                              function isAxiosResponse (r: {} | AxiosResponse): r is AxiosResponse
                               {
-                                console.log(`${new Date()} [API ERROR] ${response.data
-                                                                                 .error}`);
-                                return Observable.empty();
+                                return true;
                               }
 
-                              if (exchangeRequest.command === ExchangeCommand.Buy)
+                              if (isAxiosResponse(response))
                               {
-                                v = true;
-                              }
-                              else if (exchangeRequest.command
-                                         === ExchangeCommand.ReturnCommissionInfo)
-                              {
-                                v = { maker: .15,
-                                      taker: .25 }; //placeholder
-                              }
-                              else if (exchangeRequest.command
-                                       === ExchangeCommand.ReturnInventory)
-                              {
-                                v = [new Car(PriceRange.Low),
-                                     new Car(PriceRange.Low),
-                                     new Car(PriceRange.Low),
-                                     new Car(PriceRange.Mid),
-                                     new Car(PriceRange.High),
-                                     new Car(PriceRange.High)]; //placeholder
-                              }
-                              else
-                              {
-                                console.log(`${new Date()} [API ERROR] Command ${exchangeRequest.command} not handled`);
-                                return Observable.empty();
-                              }
-                            }
+                                if ((response.data)
+                                    && (response.data
+                                                .error))
+                                {
+                                  console.log(`${new Date()} [API ERROR] ${response.data
+                                                                                  .error}`);
+                                  return Observable.empty();
+                                }
 
-                            console.log(`${new Date()} [RESPONSE]`);
-                            return Observable.of(new ExchangeRequestResponse(exchangeRequest, v));
-                          });
+                                if (exchangeRequest.command === ExchangeCommand.Buy)
+                                {
+                                  v = true;
+                                }
+                                else if (exchangeRequest.command
+                                          === ExchangeCommand.ReturnCommissionInfo)
+                                {
+                                  v = { maker: .15,
+                                        taker: .25 }; //placeholder
+                                }
+                                else if (exchangeRequest.command
+                                        === ExchangeCommand.ReturnInventory)
+                                {
+                                  v = [new Car(PriceRange.Low),
+                                      new Car(PriceRange.Low),
+                                      new Car(PriceRange.Low),
+                                      new Car(PriceRange.Mid),
+                                      new Car(PriceRange.High),
+                                      new Car(PriceRange.High)]; //placeholder
+                                }
+                                else
+                                {
+                                  console.log(`${new Date()} [API ERROR] Command ${exchangeRequest.command} not handled`);
+                                  return Observable.empty();
+                                }
+                              }
+
+                              console.log(`${new Date()} [RESPONSE]`);
+                              return Observable.of(new ExchangeRequestResponse(exchangeRequest, v));
+                            });
+    }
   }
 
   private incrementTaskQueue ()

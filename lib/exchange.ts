@@ -15,11 +15,11 @@ export class Exchange
 
   public carRequestResponse$ (carRequest: CarRequest): Observable<CarRequestResponse>
   {
-    let exchangeCommand: ExchangeCommand;
+    let command: ExchangeCommand;
     
     if (carRequest.type === CarRequestType.Buy)
     {
-      exchangeCommand = ExchangeCommand.Buy;
+      command = ExchangeCommand.Buy;
     }
     else
     {
@@ -28,7 +28,7 @@ export class Exchange
     }
 
     return this.exchangeCoordinator
-               .exchangeRequestResponse$(new ExchangeRequest(exchangeCommand,
+               .exchangeRequestResponse$(new ExchangeRequest(command,
                                                              {car: carRequest.car}))
                .concatMap(exchangeRequestResponse => Observable.of(new CarRequestResponse(carRequest,
                                                                                           exchangeRequestResponse.value)));
@@ -53,7 +53,9 @@ export class Exchange
                      .mergeMap(tick =>
                                 {
                                   return this.exchangeCoordinator
-                                             .exchangeRequestResponse$(new ExchangeRequest(command))
+                                             .exchangeRequestResponse$(new ExchangeRequest(command,
+                                                                                           undefined),
+                                                                       command)
                                              .concatMap(exchangeRequestResponse => Observable.of(exchangeRequestResponse.value));
                                 });
   }
