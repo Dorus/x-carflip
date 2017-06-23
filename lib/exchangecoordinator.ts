@@ -19,13 +19,11 @@ export class ExchangeCoordinator
 {
   private readonly apiKey: string = 'LWHEHSLWH';
   private readonly apiSecret: string = '72946258352';
-  private readonly duplicateIdentifiers: Array<string> = [];
+  private duplicateIdentifiers: Array<string> = [];
   private lastNonce: number = 0;
   private readonly taskQueue = new Subject<Task>();
   private taskQueueSize: number = 0;
   private readonly taskQueue$ = this.taskQueue
-                                    .do(this.incrementTaskQueue
-                                            .bind(this))
                                     .concatMap(task =>
                                                {
                                                   if (task.observer
@@ -65,17 +63,27 @@ export class ExchangeCoordinator
                                                                             })
                                                 },
                                                 (task,
-                                                  response) => ({response,
-                                                                observer: task.observer}))
-                                    .do(this.decrementTaskQueue
-                                            .bind(this))
-                                    .subscribe(({response,
-                                                observer}) =>
+                                                 response) => (new TaskResponse(response,
+                                                                                task)))
+                                    .subscribe((taskResponse) =>
                                                {
-                                                 observer.next(response);
+                                                 taskResponse.task
+                                                             .observer
+                                                             .next(taskResponse.response);
 
-                                                 observer.complete();
+                                                 taskResponse.task
+                                                             .observer
+                                                             .complete();
                                                });
+
+  private addDuplicateIdentifier (duplicateIdentifier?: string)
+  {
+    if (duplicateIdentifier)
+    {
+      this.duplicateIdentifiers
+          .push(duplicateIdentifier);
+    }
+  }
 
   private decrementTaskQueue ()
   {
@@ -89,7 +97,7 @@ export class ExchangeCoordinator
         && (this.duplicateIdentifiers
                 .includes(duplicateIdentifier)))
     {
-      console.log(`found ${duplicateIdentifier} skip task enqueue`);
+      console.log(`${new Date()} [INFO] Skipping task enqueue for duplicate identifier ${duplicateIdentifier}`);
       return Observable.empty();
     }
     else
@@ -99,14 +107,25 @@ export class ExchangeCoordinator
                                 const task = new Task(observer,
                                                       exchangeRequest);
 
+                                this.addDuplicateIdentifier(duplicateIdentifier);
+
+                                this.incrementTaskQueue();
+
                                 this.taskQueue
                                     .next(task);
                               })
-                      .catch(this.requestError$
-                                 .bind(this))
+                      .catch((error) =>
+                              {
+                                return this.requestError$(error,
+                                                          duplicateIdentifier);
+                              })
                       .concatMap((response) =>
                             {
                               let v;
+
+                              this.decrementTaskQueue();
+
+                              this.removeDuplicateIdentifier(duplicateIdentifier);
 
                               function isAxiosResponse (r: {} | AxiosResponse): r is AxiosResponse
                               {
@@ -124,18 +143,19 @@ export class ExchangeCoordinator
                                   return Observable.empty();
                                 }
 
-                                if (exchangeRequest.command === ExchangeCommand.Buy)
+                                if (exchangeRequest.command
+                                    === ExchangeCommand.Buy)
                                 {
                                   v = true;
                                 }
                                 else if (exchangeRequest.command
-                                          === ExchangeCommand.ReturnCommissionInfo)
+                                         === ExchangeCommand.ReturnCommissionInfo)
                                 {
                                   v = { maker: .15,
                                         taker: .25 }; //placeholder
                                 }
                                 else if (exchangeRequest.command
-                                        === ExchangeCommand.ReturnInventory)
+                                         === ExchangeCommand.ReturnInventory)
                                 {
                                   v = [new Car(PriceRange.Low),
                                       new Car(PriceRange.Low),
@@ -168,9 +188,24 @@ export class ExchangeCoordinator
     }
   }
 
-  private requestError$ (error)
+  private removeDuplicateIdentifier (duplicateIdentifier?: string)
+  {
+    if (duplicateIdentifier)
+    {
+      const newDuplicateIdentifiers: Array<string> = this.duplicateIdentifiers
+                                                         .filter(e => e != duplicateIdentifier);
+
+      this.duplicateIdentifiers = newDuplicateIdentifiers;
+    }
+  }
+
+  private requestError$ (error, duplicateIdentifier?: string)
   {
     let errorSummary: string = '';
+
+    this.decrementTaskQueue();
+
+    this.removeDuplicateIdentifier(duplicateIdentifier);
 
     if ((error)
         && (error.response)
@@ -206,8 +241,6 @@ export class ExchangeCoordinator
       console.log('Unhandled error condition');
       console.log(`${new Date()} [NETWORK ERROR] ${errorSummary}`);
     }
-
-    this.decrementTaskQueue();
 
     return Observable.empty();
   }
@@ -253,4 +286,12 @@ function generateNextNonce(lastNonce: number): number
   }
 
   return v;
+}
+
+
+export class TaskResponse
+{
+  constructor (public readonly response: any, public readonly task: Task)
+  {
+  }
 }

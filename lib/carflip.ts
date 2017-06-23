@@ -42,7 +42,7 @@ export class Carflip
     const inventory: Array<Car> = marketState.get(Indicator.Inventory);
 
     const v: Array<CarRequest> = inventory.filter(car => car.priceRange
-                                                  == PriceRange.Low)
+                                                         == PriceRange.Low)
                                           .map(car =>
                                                {
                                                  return new CarRequest(car,
