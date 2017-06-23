@@ -30,8 +30,8 @@ export class Carflip
   {
     const exchange: Exchange = this.exchange;
 
-    return Observable.combineLatest([exchange.commissionInfo$(3),
-                                     exchange.inventory$(1)],
+    return Observable.combineLatest([exchange.commissionInfo$(300),
+                                     exchange.inventory$(200)],
                                     <(latestValues) => MarketState>this.generateMarketState
                                                                        .bind(this));
   }

@@ -113,19 +113,21 @@ export class ExchangeCoordinator
 
                                 this.taskQueue
                                     .next(task);
+
+                                return () =>
+                                       {
+                                          this.decrementTaskQueue();
+
+                                          this.removeDuplicateIdentifier(duplicateIdentifier);
+                                       }
                               })
                       .catch((error) =>
                               {
-                                return this.requestError$(error,
-                                                          duplicateIdentifier);
+                                return this.requestError$(error);
                               })
                       .concatMap((response) =>
                             {
                               let v;
-
-                              this.decrementTaskQueue();
-
-                              this.removeDuplicateIdentifier(duplicateIdentifier);
 
                               function isAxiosResponse (r: {} | AxiosResponse): r is AxiosResponse
                               {
@@ -199,13 +201,9 @@ export class ExchangeCoordinator
     }
   }
 
-  private requestError$ (error, duplicateIdentifier?: string)
+  private requestError$ (error)
   {
     let errorSummary: string = '';
-
-    this.decrementTaskQueue();
-
-    this.removeDuplicateIdentifier(duplicateIdentifier);
 
     if ((error)
         && (error.response)
