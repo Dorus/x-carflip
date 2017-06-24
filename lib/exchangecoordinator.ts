@@ -59,10 +59,11 @@ export class ExchangeCoordinator
                                                                             {
                                                                               task.observer
                                                                                   .error(error);
+
                                                                               return Observable.empty();
                                                                             })
-                                                },
-                                                (task,
+                                               },
+                                               (task,
                                                  response) => (new TaskResponse(response,
                                                                                 task)))
                                     .subscribe((taskResponse) =>
@@ -102,7 +103,8 @@ export class ExchangeCoordinator
     }
     else
     {
-      return Observable.create(observer =>
+      return Observable.create(// with this code moved into an `enqueueRequest` method
+                              /*observer =>
                               {
                                 const task = new Task(observer,
                                                       exchangeRequest);
@@ -119,12 +121,9 @@ export class ExchangeCoordinator
                                           this.decrementTaskQueue();
 
                                           this.removeDuplicateIdentifier(duplicateIdentifier);
-                                       }
-                              })
-                      .catch((error) =>
-                              {
-                                return this.requestError$(error);
-                              })
+                                       };
+                              }*/)
+                      .catch(this.requestError$)
                       .concatMap((response) =>
                             {
                               let v;
