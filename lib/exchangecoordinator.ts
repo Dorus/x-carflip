@@ -13,6 +13,7 @@ import { PriceRange } from './pricerange';
 import * as Querystring from 'querystring';
 import { Subject } from '@reactivex/rxjs';
 import { Task } from './task';
+
 export class ExchangeCoordinator {
   private readonly apiKey: string = 'LWHEHSLWH';
   private readonly apiSecret: string = '72946258352';
@@ -22,42 +23,20 @@ export class ExchangeCoordinator {
   private taskQueueSize: number = 0;
   private readonly taskQueue$ = this.taskQueue
     .concatMap((task) => {
-        if (task.observer
-          .closed) {
+        if (task.observer.closed) {
           return Observable.empty();
         }
-        const nextNonce: number = generateNextNonce(this.lastNonce);
-        this.lastNonce = nextNonce;
-        const allParameters = {
-          command: task.exchangeRequest
-            .command,
-          nonce: nextNonce
-        };
-        console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
-        Object.assign(allParameters,
-          task.exchangeRequest
-          .parameters);
-        const data: string = Querystring.stringify(allParameters);
-        return Observable.fromPromise(generateAxiosPromise(this.apiKey,
-            this.apiSecret,
-            data))
-          .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
+        return task.project()
           .catch(error => {
-            task.observer
-              .error(error);
+            task.observer.error(error);
             return Observable.empty();
           })
       },
-      (task,
-        response) => (new TaskResponse(response,
-        task)))
-    .subscribe((taskResponse) => {
-      taskResponse.task
-        .observer
-        .next(taskResponse.response);
-      taskResponse.task
-        .observer
-        .complete();
+      (task, response) => new TaskResponse(response, task)
+    ).subscribe({ next: (taskResponse) => taskResponse.task
+        .observer.next(taskResponse.response),
+      complete: () => taskResponse.task
+        .observer.complete()
     });
   private addDuplicateIdentifier(duplicateIdentifier ? : string) {
     if (duplicateIdentifier) {
@@ -72,7 +51,22 @@ export class ExchangeCoordinator {
   private enqueueRequest$(exchangeRequest: ExchangeRequest, duplicateIdentifier ? : string): Observable < AxiosResponse > {
     return Observable.create((observer) => {
       const task = new Task(observer,
-        exchangeRequest);
+        () => {
+          const nextNonce: number = generateNextNonce(this.lastNonce);
+          this.lastNonce = nextNonce;
+          const allParameters = {
+            command: exchangeRequest.command,
+            nonce: nextNonce
+          };
+          console.log(`${new Date()} request with nonce ${allParameters.nonce}`);
+          Object.assign(allParameters,
+            exchangeRequest.parameters);
+          const data: string = Querystring.stringify(allParameters);
+          return Observable.fromPromise(generateAxiosPromise(this.apiKey,
+              this.apiSecret,
+              data))
+            .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
+        });
       this.addDuplicateIdentifier(duplicateIdentifier);
       this.incrementTaskQueue();
       this.taskQueue
@@ -184,8 +178,7 @@ function requestResponse$(exchangeRequest: ExchangeRequest, response: {}): Obser
     if ((response.data) &&
       (response.data
         .error)) {
-      console.log(`${new Date()} [API ERROR] ${response.data
-                                                       .error}`);
+      console.log(`${new Date()} [API ERROR] ${response.data.error}`);
       return Observable.empty();
     }
     if (exchangeRequest.command ===
