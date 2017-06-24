@@ -38,20 +38,36 @@ export class ExchangeCoordinator {
       complete: () => taskResponse.task
         .observer.complete()
     });
+    
   private addDuplicateIdentifier(duplicateIdentifier ? : string) {
     if (duplicateIdentifier) {
       this.duplicateIdentifiers
         .push(duplicateIdentifier);
     }
   }
+  
   private decrementTaskQueue() {
     this.taskQueueSize--;
     console.log(`${new Date()} dequeue size ${this.taskQueueSize}`);
   }
+  
   private enqueueRequest$(exchangeRequest: ExchangeRequest, duplicateIdentifier ? : string): Observable < AxiosResponse > {
     return Observable.create((observer) => {
       const task = new Task(observer,
-        () => {
+        buildRequest(exchangeRequest));
+      this.addDuplicateIdentifier(duplicateIdentifier);
+      this.incrementTaskQueue();
+      this.taskQueue
+        .next(task);
+      return () => {
+        this.decrementTaskQueue();
+        this.removeDuplicateIdentifier(duplicateIdentifier);
+      };
+    })
+  }
+  
+  private buildRequest(exchangeRequest: ExchangeRequest): () => Observable<any> {
+    return () => {
           const nextNonce: number = generateNextNonce(this.lastNonce);
           this.lastNonce = nextNonce;
           const allParameters = {
@@ -66,17 +82,9 @@ export class ExchangeCoordinator {
               this.apiSecret,
               data))
             .do(() => console.log(`${new Date()} request with nonce ${allParameters.nonce} done`))
-        });
-      this.addDuplicateIdentifier(duplicateIdentifier);
-      this.incrementTaskQueue();
-      this.taskQueue
-        .next(task);
-      return () => {
-        this.decrementTaskQueue();
-        this.removeDuplicateIdentifier(duplicateIdentifier);
-      };
-    })
+        }
   }
+  
   public exchangeRequestResponse$(exchangeRequest: ExchangeRequest, duplicateIdentifier ? : string): Observable < ExchangeRequestResponse > {
     if ((duplicateIdentifier) &&
       (this.duplicateIdentifiers
@@ -93,6 +101,7 @@ export class ExchangeCoordinator {
         });
     }
   }
+  
   private incrementTaskQueue() {
     this.taskQueueSize++;
     console.log(`${new Date()} enqueue size ${this.taskQueueSize}`);
@@ -100,6 +109,7 @@ export class ExchangeCoordinator {
       console.log(`${new Date()} [INFO] Task queue exceeds normal maximum (${this.taskQueueSize})`);
     }
   }
+  
   private removeDuplicateIdentifier(duplicateIdentifier ? : string) {
     if (duplicateIdentifier) {
       const newDuplicateIdentifiers: Array < string > = this.duplicateIdentifiers
@@ -107,6 +117,7 @@ export class ExchangeCoordinator {
       this.duplicateIdentifiers = newDuplicateIdentifiers;
     }
   }
+  
   private requestError$(error) {
     let errorSummary: string = '';
     if ((error) &&
