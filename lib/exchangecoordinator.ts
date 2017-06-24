@@ -92,6 +92,29 @@ export class ExchangeCoordinator
     console.log(`${new Date()} dequeue size ${this.taskQueueSize}`);
   }
 
+  private enqueueRequest$ (observer: Observer<any>, exchangeRequest: ExchangeRequest, duplicateIdentifier?: string)
+  {
+    observer =>
+    {
+      const task = new Task(observer,
+                            exchangeRequest);
+
+      this.addDuplicateIdentifier(duplicateIdentifier);
+
+      this.incrementTaskQueue();
+
+      this.taskQueue
+          .next(task);
+
+      return () =>
+              {
+                this.decrementTaskQueue();
+
+                this.removeDuplicateIdentifier(duplicateIdentifier);
+              };
+    };
+  }
+
   public exchangeRequestResponse$ (exchangeRequest: ExchangeRequest, duplicateIdentifier?: string): Observable<ExchangeRequestResponse>
   {
     if ((duplicateIdentifier)
@@ -103,7 +126,12 @@ export class ExchangeCoordinator
     }
     else
     {
-      return Observable.create(// with this code moved into an `enqueueRequest` method
+      return Observable.create((observer) =>
+                               {
+                                 return this.enqueueRequest$(observer,
+                                                             exchangeRequest,
+                                                             duplicateIdentifier);
+                               }
                               /*observer =>
                               {
                                 const task = new Task(observer,
